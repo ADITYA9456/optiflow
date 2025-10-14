@@ -20,11 +20,22 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
+    enum: ['owner', 'admin', 'user'],
     default: 'user',
+  },
+  isOwner: {
+    type: Boolean,
+    default: false,
   },
 }, {
   timestamps: true,
+});
+
+// Ensure only one owner exists
+UserSchema.index({ isOwner: 1 }, { 
+  unique: true, 
+  partialFilterExpression: { isOwner: true },
+  sparse: true 
 });
 
 UserSchema.pre('save', async function(next) {
