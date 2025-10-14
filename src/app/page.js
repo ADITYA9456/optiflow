@@ -27,7 +27,7 @@ export default function HomePage() {
       <Navbar />
       
       {/* Hero Section */}
-      <section ref={heroRef} id="home" className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
+      <section ref={heroRef} id="home" className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-20">
         {/* Animated Background */}
         <motion.div 
           className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20"
@@ -46,27 +46,6 @@ export default function HomePage() {
           className="relative max-w-6xl mx-auto text-center"
           style={{ y, opacity }}
         >
-          {/* Logo Animation */}
-          <motion.div 
-            className="mb-8"
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 100, damping: 15, delay: 0.2 }}
-            whileHover={{ scale: 1.1, rotate: 5 }}
-          >
-            <div className={`w-24 h-24 mx-auto bg-gradient-to-r ${theme.logoGradient} rounded-3xl flex items-center justify-center shadow-2xl backdrop-blur-sm border border-white/10`}>
-              <motion.svg 
-                className="w-12 h-12 text-white" 
-                fill="currentColor" 
-                viewBox="0 0 24 24"
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-              >
-                <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-              </motion.svg>
-            </div>
-          </motion.div>
-          
           <div className="space-y-8">
             <motion.h1 
               className="text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-tight"

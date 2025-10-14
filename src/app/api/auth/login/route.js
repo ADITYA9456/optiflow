@@ -1,8 +1,13 @@
+import dbConnect from '@/lib/mongodb';
+import User from '@/models/User';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
   try {
+    await dbConnect();
+    
     const { email, password } = await request.json();
 
     // Basic validation
@@ -13,26 +18,29 @@ export async function POST(request) {
       );
     }
 
-    // For development: Mock user authentication
-    // In production, this would check against the database
-    if (password.length < 6) {
+    // Find user by email
+    const user = await User.findOne({ email });
+    
+    if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
-    // Create a mock user object
-    const user = {
-      _id: 'dev_user_login_' + Date.now(),
-      name: email.split('@')[0], // Use email prefix as name
-      email,
-      role: email.includes('admin') ? 'admin' : 'user',
-    };
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      );
+    }
 
     // Create JWT token with role
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
+      { userId: user._id.toString(), role: user.role, name: user.name },
       process.env.JWT_SECRET || 'fallback-secret-key',
       { expiresIn: '7d' }
     );
@@ -42,7 +50,7 @@ export async function POST(request) {
         message: 'Login successful',
         token,
         user: {
-          id: user._id,
+          id: user._id.toString(),
           name: user.name,
           email: user.email,
           role: user.role,

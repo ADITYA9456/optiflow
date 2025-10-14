@@ -64,7 +64,7 @@ export default function Dashboard() {
       }
     };
 
-    const fetchSuggestions = async () => {
+    const loadInitialSuggestions = async () => {
       try {
         const response = await fetch('/api/suggestions', {
           headers: getAuthHeaders(),
@@ -106,7 +106,7 @@ export default function Dashboard() {
       }
 
       await fetchTasks();
-      await fetchSuggestions();
+      await loadInitialSuggestions();
     };
     
     initializeData();
@@ -259,7 +259,7 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        fetchSuggestions();
+        refetchSuggestions();
       }
     } catch (error) {
       console.error('Error updating suggestion:', error);
@@ -364,7 +364,7 @@ export default function Dashboard() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <Navbar />
         <motion.div 
-          className="flex items-center justify-center min-h-screen"
+          className="flex items-center justify-center min-h-screen pt-16"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
@@ -479,7 +479,7 @@ export default function Dashboard() {
       
       {/* Animated Background */}
       <motion.div 
-        className="absolute inset-0 overflow-hidden"
+        className="absolute inset-0 overflow-hidden pointer-events-none"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 2 }}
@@ -514,7 +514,7 @@ export default function Dashboard() {
       </motion.div>
       
       {/* Main Layout Container */}
-      <div className="relative flex min-h-screen">
+      <div className="relative flex pt-16 min-h-screen">
         {/* Mobile sidebar overlay */}
         <AnimatePresence>
           {sidebarOpen && (
@@ -532,12 +532,12 @@ export default function Dashboard() {
         <motion.aside 
           className={`${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:translate-x-0 fixed lg:relative z-50 w-64 bg-white/5 backdrop-blur-xl border-r border-white/10 flex flex-col transition-transform duration-300 ease-in-out h-full lg:h-auto`}
+          } lg:translate-x-0 fixed lg:relative z-40 w-64 bg-white/5 backdrop-blur-xl border-r border-white/10 flex flex-col transition-transform duration-300 ease-in-out h-screen lg:h-auto`}
           initial={{ x: -100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          <div className="p-6 border-b border-white/10">
+          <div className="p-4 border-b border-white/10">
             <motion.div 
               className="flex items-center space-x-3"
               initial={{ opacity: 0, y: 20 }}
@@ -550,14 +550,14 @@ export default function Dashboard() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-white font-semibold">Dashboard</h2>
-                <p className="text-white/60 text-sm">Welcome, {user?.name}</p>
+                <h2 className="text-white font-semibold text-sm">Dashboard</h2>
+                <p className="text-white/60 text-xs">Welcome, {user?.name}</p>
               </div>
             </motion.div>
           </div>
           
-          <nav className="flex-1 p-6">
-            <div className="space-y-2">
+          <nav className="flex-1 p-4">
+            <div className="space-y-1">
               {[
                 { id: 'overview', label: 'Overview', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z' },
                 { id: 'tasks', label: 'Tasks', icon: 'M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', badge: stats.totalTasks },
@@ -644,76 +644,11 @@ export default function Dashboard() {
             </motion.button>
           </div>
           
-          <div className="p-6 lg:p-8">
-            {/* Welcome Section */}
-            <motion.div 
-              ref={heroRef}
-              className="mb-8"
-              initial={{ opacity: 0, y: 30 }}
-              animate={heroInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.6 }}
-            >
-              <motion.div 
-                className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 lg:p-8 relative overflow-hidden"
-                whileHover={{ 
-                  borderColor: "rgba(147, 51, 234, 0.3)",
-                  boxShadow: "0 20px 40px -12px rgba(147, 51, 234, 0.2)"
-                }}
-                transition={{ duration: 0.3 }}
-              >
-                <motion.div 
-                  className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5"
-                  initial={{ opacity: 0 }}
-                  whileHover={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                />
-                
-                <div className="relative z-10 flex items-center justify-between">
-                  <div>
-                    <motion.h1 
-                      className="text-3xl lg:text-4xl font-bold text-white mb-2"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={heroInView ? { opacity: 1, x: 0 } : {}}
-                      transition={{ duration: 0.6, delay: 0.1 }}
-                    >
-                      Welcome back, <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">{user?.name}</span>! 👋
-                    </motion.h1>
-                    <motion.p 
-                      className="text-white/80 text-lg"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={heroInView ? { opacity: 1, x: 0 } : {}}
-                      transition={{ duration: 0.6, delay: 0.2 }}
-                    >
-                      Here&apos;s what&apos;s happening with your workflows today
-                    </motion.p>
-                  </div>
-                  <motion.div 
-                    className="hidden lg:block"
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={heroInView ? { scale: 1, rotate: 0 } : {}}
-                    transition={{ type: "spring", stiffness: 100, delay: 0.3 }}
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                  >
-                    <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
-                      <motion.svg 
-                        className="w-8 h-8 text-white" 
-                        fill="currentColor" 
-                        viewBox="0 0 24 24"
-                        whileHover={{ rotate: 360 }}
-                        transition={{ duration: 0.6 }}
-                      >
-                        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                      </motion.svg>
-                    </div>
-                  </motion.div>
-                </div>
-              </motion.div>
-            </motion.div>
-
+          <div className="p-3 lg:p-4">
             {/* Stats Grid */}
             <motion.div 
               ref={statsRef}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8"
+              className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-4"
               variants={containerVariants}
               initial="hidden"
               animate={statsInView ? "visible" : "hidden"}
@@ -781,7 +716,7 @@ export default function Dashboard() {
 
           {/* Tabs Navigation - Now in a more compact mobile-friendly style */}
           <motion.div 
-            className="mb-6"
+            className="mb-3"
             initial={{ opacity: 0, y: 20 }}
             animate={statsInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.6 }}

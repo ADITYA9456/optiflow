@@ -37,7 +37,7 @@ export default function Navbar() {
 
   return (
     <motion.nav 
-      className="bg-white/5 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50 shadow-2xl"
+      className="bg-white/5 backdrop-blur-xl border-b border-white/10 fixed top-0 left-0 right-0 z-50 shadow-2xl"
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.8, type: "spring", stiffness: 100 }}

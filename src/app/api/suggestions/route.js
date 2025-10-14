@@ -8,12 +8,22 @@ import { NextResponse } from 'next/server';
 // Helper function to verify JWT token
 const verifyToken = (request) => {
   const authHeader = request.headers.get('authorization');
+  
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('No authorization header or invalid format');
     throw new Error('No valid token provided');
   }
   
   const token = authHeader.substring(7);
-  return jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
+    console.log('Token decoded successfully:', { userId: decoded.userId, role: decoded.role });
+    return decoded;
+  } catch (error) {
+    console.error('Token verification failed:', error.message);
+    throw new Error('Invalid or expired token');
+  }
 };
 
 // Mock AI service to generate workflow suggestions
@@ -84,8 +94,23 @@ export async function GET(request) {
         { status: 401 }
       );
     }
-    
-    const userObjectId = new mongoose.Types.ObjectId(decoded.userId);
+
+    // Validate if userId is a valid ObjectId format before conversion
+    let userObjectId;
+    try {
+      if (mongoose.Types.ObjectId.isValid(decoded.userId)) {
+        userObjectId = new mongoose.Types.ObjectId(decoded.userId);
+      } else {
+        // If it's not a valid ObjectId, use the string directly
+        userObjectId = decoded.userId;
+      }
+    } catch (error) {
+      console.error('ObjectId conversion error:', error);
+      return NextResponse.json(
+        { error: 'Invalid user ID format' },
+        { status: 400 }
+      );
+    }
     
     // Get user's tasks to analyze
     const tasks = await Task.find({ userId: userObjectId });
@@ -121,9 +146,19 @@ export async function GET(request) {
     }, { status: 200 });
   } catch (error) {
     console.error('Get suggestions error:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Return more specific error messages
+    if (error.message.includes('token')) {
+      return NextResponse.json(
+        { error: 'Authentication failed: ' + error.message },
+        { status: 401 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Unauthorized or server error' },
-      { status: 401 }
+      { error: error.message || 'Server error' },
+      { status: 500 }
     );
   }
 }
@@ -144,7 +179,21 @@ export async function PUT(request) {
       );
     }
 
-    const userObjectId = new mongoose.Types.ObjectId(decoded.userId);
+    // Validate if userId is a valid ObjectId format before conversion
+    let userObjectId;
+    try {
+      if (mongoose.Types.ObjectId.isValid(decoded.userId)) {
+        userObjectId = new mongoose.Types.ObjectId(decoded.userId);
+      } else {
+        userObjectId = decoded.userId;
+      }
+    } catch (error) {
+      console.error('ObjectId conversion error:', error);
+      return NextResponse.json(
+        { error: 'Invalid user ID format' },
+        { status: 400 }
+      );
+    }
 
     const suggestion = await Suggestion.findOneAndUpdate(
       { _id: suggestionId, userId: userObjectId },
