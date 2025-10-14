@@ -644,80 +644,11 @@ export default function Dashboard() {
             </motion.button>
           </div>
           
-          <div className="p-3 lg:p-4">
-            {/* Stats Grid */}
+          <div className="p-2 lg:p-3">
+            {/* Tabs Navigation - Now in a more compact mobile-friendly style */}
             <motion.div 
-              ref={statsRef}
-              className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-4"
-              variants={containerVariants}
-              initial="hidden"
-              animate={statsInView ? "visible" : "hidden"}
-            >
-            {statsData.map((stat, index) => (
-              <motion.div 
-                key={index}
-                className={`bg-gradient-to-br ${stat.color} backdrop-blur-xl border ${stat.borderColor} rounded-2xl p-6 relative overflow-hidden group cursor-pointer`}
-                variants={itemVariants}
-                whileHover={{ 
-                  scale: 1.05, 
-                  y: -5,
-                  boxShadow: "0 20px 40px -10px rgba(147, 51, 234, 0.3)"
-                }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <motion.div 
-                  className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                />
-                
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-4">
-                    <motion.div 
-                      className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center border ${stat.borderColor}`}
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                    >
-                      {stat.icon}
-                    </motion.div>
-                    <motion.div 
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        stat.trend === 'up' ? 'bg-green-500/20 text-green-400' :
-                        stat.trend === 'down' ? 'bg-red-500/20 text-red-400' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}
-                      initial={{ opacity: 0, scale: 0 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.1 + 0.5 }}
-                    >
-                      {stat.change}
-                    </motion.div>
-                  </div>
-                  
-                  <div>
-                    <motion.p 
-                      className="text-white/60 text-sm font-medium uppercase tracking-wide mb-2"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.1 + 0.3 }}
-                    >
-                      {stat.title}
-                    </motion.p>
-                    <motion.p 
-                      className="text-4xl font-bold text-white"
-                      initial={{ opacity: 0, scale: 0.5 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: "spring", delay: index * 0.1 + 0.4 }}
-                    >
-                      {stat.value}
-                    </motion.p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Tabs Navigation - Now in a more compact mobile-friendly style */}
-          <motion.div 
-            className="mb-3"
-            initial={{ opacity: 0, y: 20 }}
+              className="mb-2"
+              initial={{ opacity: 0, y: 20 }}
             animate={statsInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.6 }}
           >
