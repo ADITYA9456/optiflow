@@ -448,12 +448,7 @@ export default function SignupPage() {
                           <div>
                             <h4 className="text-yellow-300 font-medium text-sm">Admin Account Required</h4>
                             <p className="text-yellow-200 text-xs mt-1">
-                              Code: <motion.code 
-                                className="bg-black/30 px-2 py-0.5 rounded text-yellow-100 font-mono text-xs"
-                                whileHover={{ scale: 1.05, backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-                              >
-                                admin-verification-code-2025
-                              </motion.code>
+                              Contact your organization owner for the admin verification code.
                             </p>
                           </div>
                         </div>

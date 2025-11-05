@@ -175,17 +175,27 @@ export async function POST(request) {
 
       return response;
     } else {
-      // Fallback mode: Create mock user without database
+      // Development fallback mode
+      logger.warn('Using development fallback mode for registration', { requestId });
+
       const mockUserId = 'user_' + Date.now();
       
-      // Create JWT token with role
+      // Create JWT token with 1 hour expiry
       const token = jwt.sign(
         { userId: mockUserId, role: role || 'user', name: name },
-        process.env.JWT_SECRET || 'fallback-secret-key',
-        { expiresIn: '7d' }
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
       );
 
-      return NextResponse.json(
+      const duration = Date.now() - startTime;
+      logger.info('User registered (development mode)', {
+        requestId,
+        userId: mockUserId,
+        role: role || 'user',
+        duration: `${duration}ms`
+      });
+
+      const response = NextResponse.json(
         {
           message: 'User registered successfully (Development Mode)',
           token,
@@ -198,13 +208,25 @@ export async function POST(request) {
         },
         { status: 201 }
       );
+
+      response.cookies.set('auth-token', token, {
+        httpOnly: true,
+        secure: false, // Development mode
+        sameSite: 'lax',
+        maxAge: 3600,
+        path: '/',
+      });
+
+      return response;
     }
   } catch (error) {
-    console.error('Registration error:', error);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+    const duration = Date.now() - startTime;
+    logger.error('Registration failed', {
+      requestId,
+      error: error.message,
+      duration: `${duration}ms`
+    });
     
-    // Return specific error message for debugging
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }
