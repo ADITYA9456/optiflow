@@ -1,55 +1,43 @@
-// Client-side authentication utilities
+// Backwards-compatible helpers. New code should prefer the AuthContext hook.
+//
+// `authFetch` simply preserves credentials so the httpOnly cookie is sent.
+// `getCurrentUser` is retained for non-React modules; React code should use useAuth().
 
-export const setToken = (token) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('token', token);
-  }
+export const authFetch = async (url, options = {}) => {
+  return fetch(url, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      ...(options.headers || {}),
+    },
+  });
 };
 
-export const getToken = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('token');
-  }
-  return null;
-};
-
-export const removeToken = () => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('token');
-  }
-};
-
-export const isAuthenticated = () => {
-  const token = getToken();
-  if (!token) return false;
-  
+export const getCurrentUser = async () => {
   try {
-    // Check if token is expired (basic check)
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const currentTime = Date.now() / 1000;
-    return payload.exp > currentTime;
-  } catch (error) {
-    return false;
-  }
-};
-
-export const getUserRole = () => {
-  const token = getToken();
-  if (!token) return null;
-  
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.role || 'user';
-  } catch (error) {
+    const response = await fetch('/api/me', {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.user || null;
+  } catch {
     return null;
   }
 };
 
-export const isAdmin = () => {
-  return getUserRole() === 'admin';
-};
-
-export const getAuthHeaders = () => {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+export const removeToken = async () => {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('token');
+    } catch {
+      // ignore
+    }
+  }
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  } catch {
+    // best-effort
+  }
 };

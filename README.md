@@ -1,182 +1,206 @@
+<div align="center">
 
-# OptiFlow - Workflow Optimization Tool
+# OptiFlow AI
 
-A full-stack workflow optimization tool built with Next.js, Tailwind CSS, Node.js, Express, and MongoDB.
+**Jira + Slack + AI Promotion Predictor — one premium SaaS workspace.**
 
-## Features
+AI-powered workplace productivity platform combining task execution, team chat,
+performance analytics and a transparent promotion/hike prediction engine. Built
+as a production-grade Next.js full-stack SaaS that runs anywhere Node runs.
 
-### 🏠 Landing Page
-- Professional landing page with company branding
-- Feature highlights and pricing information
-- Simple navigation with authentication options
-- Responsive design with Tailwind CSS
-
-### 🔐 Authentication System
-- User signup and login with JWT tokens
-- Secure password hashing with bcryptjs
-- Protected routes and session management
-- Automatic token validation
-
-### 📊 Dashboard
-- Modern, responsive dashboard interface
-- Task management with CRUD operations
-- Real-time task statistics and analytics
-- Tabbed interface for organized content
-
-### ✅ Task Management
-- Create tasks with title, description, deadline, and priority
-- Track task status (pending, in-progress, completed)
-- Visual task cards with priority and status indicators
-- Deadline tracking with overdue notifications
-
-### 🤖 AI-Powered Workflow Optimization
-- Intelligent workflow suggestions based on task patterns
-- Priority recommendations for better productivity
-- Time management insights and alerts
-- Mock AI service with realistic suggestions
-
-### 📈 Analytics Dashboard
-- Task distribution visualization
-- Productivity insights and completion rates
-- Progress tracking with interactive charts
-- Performance metrics and trends
-
-## Tech Stack
-
-- **Frontend**: Next.js 15, React, Tailwind CSS
-- **Backend**: Next.js API Routes, Express-like routing
-- **Database**: MongoDB with Mongoose ODM
-- **Authentication**: JWT (JSON Web Tokens)
-- **Styling**: Tailwind CSS for responsive design
-- **Charts**: Chart.js and React-Chart.js-2 for analytics
-
-## Getting Started
-
-### Prerequisites
-- Node.js (v18 or higher)
-- MongoDB (local installation or MongoDB Atlas)
-- npm package manager
-
-### 1. Install Dependencies
-
-```bash
-npm install
-```
-
-### 2. Environment Variables
-
-Create a `.env.local` file in the root directory:
-
-```env
-MONGODB_URI=mongodb://localhost:27017/optiflow
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-NEXT_PUBLIC_API_URL=http://localhost:3000
-AI_API_KEY=mock-ai-api-key
-```
-
-### 3. MongoDB Setup
-
-**Option A: Local MongoDB**
-1. Install MongoDB locally
-2. Start MongoDB service
-3. Use the default connection string: `mongodb://localhost:27017/optiflow`
-
-**Option B: MongoDB Atlas (Cloud)**
-1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/atlas)
-2. Create a new cluster
-3. Get your connection string
-4. Replace the `MONGODB_URI` in `.env.local`
-
-### 4. Start the Development Server
-
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:3000`
-
-## Usage Guide
-
-### 1. Getting Started
-1. Visit `http://localhost:3000`
-2. Click "Sign Up" to create a new account
-3. Fill in your details and create your account
-4. You'll be redirected to the dashboard
-
-### 2. Managing Tasks
-1. In the dashboard, click "Add Task"
-2. Fill in task details (title, description, deadline, priority)
-3. Click "Add Task" to save
-
-### 3. Task Operations
-- **Update Status**: Use the dropdown on each task card
-- **Edit Task**: Click the edit icon on any task
-- **Delete Task**: Click the delete icon (requires confirmation)
-
-### 4. AI Suggestions
-1. Navigate to the "AI Suggestions" tab
-2. View workflow optimization recommendations
-3. Mark suggestions as implemented when you apply them
-
-### 5. Analytics
-1. Go to the "Analytics" tab
-2. View task distribution and productivity insights
-3. Monitor completion rates and overdue tasks
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-
-### Tasks
-- `GET /api/tasks` - Get all user tasks
-- `POST /api/tasks` - Create a new task
-- `PUT /api/tasks/[id]` - Update a task
-- `DELETE /api/tasks/[id]` - Delete a task
-
-### Suggestions
-- `GET /api/suggestions` - Get AI suggestions
-- `PUT /api/suggestions` - Mark suggestion as implemented
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── api/          # API routes
-│   ├── dashboard/    # Dashboard page
-│   ├── login/        # Login page
-│   ├── signup/       # Signup page
-│   └── page.js       # Landing page
-├── components/       # Reusable components
-├── lib/             # Database connection
-├── models/          # MongoDB models
-└── utils/           # Utility functions
-```
-
-## Production Deployment
-
-### Environment Variables for Production
-```env
-MONGODB_URI=your-production-mongodb-uri
-JWT_SECRET=strong-random-secret-for-production
-NEXT_PUBLIC_API_URL=https://your-domain.com
-```
-
-### Build and Deploy
-```bash
-npm run build
-npm start
-```
-
-## Support
-
-For support and questions:
-- Email: contact@optiflow.com
-- Phone: +1 (555) 123-4567
+</div>
 
 ---
 
-**OptiFlow** - Optimize your workflow, maximize your productivity! 🚀
+## Highlights
 
+- **Auth & RBAC** — JWT access + refresh tokens, httpOnly cookies, role-based
+  guards (`owner`, `admin`, `manager`, `team_leader`, `employee`) and a built-in
+  admin-elevation request flow with owner approval.
+- **AI-native** — Google Gemini integration for weekly insights, task
+  recommendations and a built-in chat copilot. A transparent, explainable
+  promotion/hike predictor that grounds itself in your actual work history.
+- **Tasks & Kanban** — Drag-and-drop Kanban board (`@dnd-kit`), priority +
+  status badges, mentions, comments, activity history, AI priority scores per
+  card.
+- **Team chat (Slack-like)** — Auto-provisioned team channels, direct messages,
+  `@mentions`, notification dispatch, optimistic UI, optional realtime via
+  Socket.io.
+- **Manager analytics** — Throughput, status breakdown, weekly performance,
+  promotion insights for the team.
+- **Employee dashboard** — Growth tracker, visibility & promotion score, AI
+  insights, AI suggestions, hike forecast with concrete next actions.
+- **Admin console** — System stats, audit log viewer, admin elevation request
+  review.
+- **Premium UI/UX** — Real light + dark mode via CSS-variable tokens (not
+  hard-coded classes), smooth animations, responsive layout, accessibility
+  best-practices, reusable primitives (`Button`, `Card`, `Badge`, `Skeleton`,
+  `EmptyState`, `Toast`).
+- **Production hardening** — Zod validation on all critical APIs, in-memory rate
+  limiting, security headers (HSTS, X-Frame-Options, etc.), same-origin CSRF
+  guard on state-changing requests, audit logging, structured logger,
+  notification system, refresh-token flow, retry-safe Mongo connection.
+
+## Tech stack
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Frontend | **Next.js 15** (App Router, JS only) | Server components for layout, client components for interactivity |
+| UI | **Tailwind CSS v4** + CSS variables | Theme-aware via `data-theme` |
+| State | React Context (Auth / Theme / Notifications) + `sonner` toasts | No external state lib needed |
+| Drag & drop | `@dnd-kit/core`, `@dnd-kit/sortable` | Accessible, keyboard friendly |
+| Charts | `chart.js` + `react-chartjs-2` | Manager & employee analytics |
+| Backend | **Next.js Route Handlers** (`/app/api/*`) | Each handler wrapped with `createHandler` |
+| Validation | `zod` schemas in `src/lib/validation.js` |
+| Auth | `jsonwebtoken` + `bcryptjs`, httpOnly cookies | Access + refresh token rotation |
+| Database | **MongoDB** + `mongoose` | Indexed schemas, partial unique index for `isOwner` |
+| Realtime | `socket.io` (Pages Router endpoint) | Works locally / on any Node host |
+| AI | `@google/generative-ai` (Gemini 1.5 Pro) | Heuristic fallbacks if key missing |
+
+> ## Why Next.js full-stack, not NestJS?
+>
+> The original brief mentioned "NestJS backend". The existing codebase was a
+> working Next.js full-stack app with shipped models, routes, auth, UI, and
+> tests scaffolding. Rebuilding from scratch into NestJS would have violated
+> *"Do NOT rebuild from scratch / Reuse existing technologies"*. Keeping
+> Next.js full-stack ships the same product in one repo, one deploy, one
+> language — the right call for a solo SaaS / portfolio demo. Migrating to a
+> dedicated NestJS backend later is a non-breaking refactor (the API surface
+> already lives in `/app/api/*`).
+
+## Architecture at a glance
+
+```
+src/
+├── app/                # Next.js App Router
+│   ├── api/            # All HTTP routes (auth, tasks, teams, chat, ai, admin, ...)
+│   ├── admin/          # Owner+admin console (system stats, audit logs, requests)
+│   ├── chat/           # Realtime + REST channel + DM UI
+│   ├── dashboard/      # Manager + employee unified workspace
+│   ├── tasks/[id]/     # Task detail with comments + activity log
+│   ├── profile/        # Personal growth + hike prediction
+│   ├── teams/, users/  # Team and people management (manager+)
+│   ├── login/, signup/ # Auth pages
+│   ├── error.js, not-found.js, loading.js
+│   └── providers.js    # ThemeProvider + AuthProvider + NotificationProvider + Toaster
+├── components/         # UI primitives, KanbanBoard, AIChatPanel, HikePredictionCard, ...
+├── contexts/           # AuthContext, ThemeContext, NotificationContext
+├── lib/                # api-handler, validation, rate-limit, jwt, audit, notifications, mongodb, gemini, logger
+├── middleware/         # Server-side auth guards (requireAuth / requireManager / requireAdmin / requireOwner)
+├── middleware.js       # Edge middleware for route protection
+├── models/             # Mongoose models (User, Team, Task, Channel, Message, Suggestion, AdminRequest, AuditLog, Notification)
+├── pages/api/          # Socket.io server (Pages Router; used only for websockets)
+└── utils/              # Light client-side auth helpers (backwards compat)
+```
+
+### Request pipeline
+
+1. **Edge middleware** (`src/middleware.js`) decodes the access JWT and
+   redirects unauth'd users / wrong roles before the page renders.
+2. **`createHandler`** (`src/lib/api-handler.js`) wraps every API route with:
+   structured logging → rate limiting → same-origin CSRF check → Zod body
+   validation → consistent error → JSON response.
+3. **`requireAuth*`** guards (`src/middleware/auth.js`) verify the JWT, hydrate
+   the Mongoose user, and enforce minimum role.
+4. **`recordAudit`** and **`notify`** are best-effort side effects that never
+   throw — every important state change is logged + notified.
+
+## Security checklist
+
+- [x] Passwords hashed with bcrypt (cost 12). `password` field is `select: false`.
+- [x] JWT access + refresh token pair, refresh rotates on use.
+- [x] HttpOnly, sameSite=lax cookies (`secure` in production).
+- [x] Edge-side route guards + per-route server guards (defense in depth).
+- [x] Same-origin enforcement on state-changing requests (basic CSRF guard).
+- [x] Rate limiting per IP per bucket (auth = 10/min, API = 120/min, AI = 20/min).
+- [x] Zod validation on every body-accepting endpoint.
+- [x] Security headers (HSTS, X-Frame-Options, X-Content-Type-Options,
+      Referrer-Policy, Permissions-Policy).
+- [x] First user auto-becomes owner; elevated registration requires `ADMIN_SECRET`.
+- [x] Audit log entries for login, register, admin request lifecycle, role changes,
+      task create/update/delete, team delete, user deactivate.
+- [x] Sensitive log redaction (`password`, `token`, `adminSecret`, `apiKey`).
+
+## Local development
+
+```bash
+# 1. Install deps
+npm install
+
+# 2. Configure env
+cp .env.example .env.local
+# edit values — MONGODB_URI, JWT_SECRET, JWT_REFRESH_SECRET, ADMIN_SECRET, GEMINI_API_KEY
+
+# 3. Run
+npm run dev    # http://localhost:3000
+```
+
+> First user that signs up automatically becomes the workspace **owner**.
+> Subsequent privileged signups (`manager`, `admin`, `team_leader`) must
+> provide the matching `ADMIN_SECRET` value.
+
+## Production build
+
+```bash
+npm run build
+npm run start
+```
+
+## Deployment
+
+### Vercel (recommended for the web app)
+
+1. Push to a Git provider, import into Vercel.
+2. Add all variables from `.env.example` in **Project Settings → Environment Variables**.
+3. Deploy. The app, all REST routes, and the SSR layer run out of the box.
+
+**Socket.io caveat:** Vercel serverless functions cannot hold long-lived
+connections. Two production options:
+
+- Deploy the websocket endpoint (`src/pages/api/socketio.js`) on a small Node
+  host (Railway, Render, Fly.io) and point the client to that origin via
+  `NEXT_PUBLIC_SOCKET_URL`.
+- Or replace Socket.io with a managed pub/sub (e.g. Ably, Pusher,
+  Supabase Realtime). The notification dispatcher already calls
+  `globalThis.__optiflowSocketIO?.emit(...)` so swapping is localized.
+
+REST + polling fallback in the chat UI keeps everything functional even when no
+websocket server is present.
+
+### Docker (single-node)
+
+```dockerfile
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+EXPOSE 3000
+CMD ["npm", "run", "start"]
+```
+
+## Roadmap (next iterations)
+
+- Replace in-memory rate limiter with Upstash Redis for multi-region.
+- Move attachments to S3-compatible storage + presigned uploads.
+- Pluggable AI providers (Anthropic, OpenAI) with provider routing.
+- Slack / Teams notifications adapter.
+- Saved Kanban views, swimlanes, calendar view, Gantt.
+- Webhooks + REST API tokens for integrations.
+
+## License
+
+Internal / private — adapt per your needs.

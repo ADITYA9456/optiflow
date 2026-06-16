@@ -1,100 +1,63 @@
-import logger from '@/lib/logger';
+import { createHandler, ok } from '@/lib/api-handler';
 import dbConnect from '@/lib/mongodb';
+import { recordAudit } from '@/lib/audit';
+import { notify } from '@/lib/notifications';
+import { adminApproveSchema } from '@/lib/validation';
 import { requireOwner } from '@/middleware/auth';
 import AdminRequest from '@/models/AdminRequest';
 import User from '@/models/User';
-import { NextResponse } from 'next/server';
 
-// POST - Approve or reject admin request (owner only)
-export async function POST(request) {
-  const requestId = logger.generateRequestId();
-  
-  try {
+export const POST = createHandler({
+  schema: adminApproveSchema,
+  rateLimit: { bucket: 'admin-approve', limit: 30 },
+  handler: async ({ request, body }) => {
     await dbConnect();
     const owner = await requireOwner(request);
-    
-    const { requestIdDb, action, notes } = await request.json();
+    const { requestIdDb, action, notes } = body;
 
-    if (!requestIdDb || !['approve', 'reject'].includes(action)) {
-      return NextResponse.json(
-        { error: 'Invalid request parameters' },
-        { status: 400 }
-      );
-    }
+    const req = await AdminRequest.findById(requestIdDb).populate('userId');
+    if (!req) return ok({ error: 'Admin request not found' }, 404);
+    if (req.status !== 'pending') return ok({ error: 'This request has already been processed' }, 400);
 
-    // Find the admin request
-    const adminRequest = await AdminRequest.findById(requestIdDb).populate('userId');
+    req.status = action === 'approve' ? 'approved' : 'rejected';
+    req.reviewedBy = owner._id;
+    req.reviewedAt = new Date();
+    req.reviewNotes = notes || '';
+    await req.save();
 
-    if (!adminRequest) {
-      return NextResponse.json(
-        { error: 'Admin request not found' },
-        { status: 404 }
-      );
-    }
-
-    if (adminRequest.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'This request has already been processed' },
-        { status: 400 }
-      );
-    }
-
-    // Update request status
-    adminRequest.status = action === 'approve' ? 'approved' : 'rejected';
-    adminRequest.reviewedBy = owner._id;
-    adminRequest.reviewedAt = new Date();
-    adminRequest.reviewNotes = notes || '';
-    await adminRequest.save();
-
-    // If approved, elevate user to admin
+    let elevatedUserId = null;
     if (action === 'approve') {
-      const targetUser = await User.findById(adminRequest.userId);
-      if (targetUser) {
-        targetUser.role = 'admin';
-        await targetUser.save();
-
-        logger.info('User elevated to admin', {
-          requestId,
-          userId: targetUser._id.toString(),
-          elevatedBy: owner._id.toString()
-        });
+      const target = await User.findById(req.userId);
+      if (target) {
+        target.role = 'admin';
+        await target.save();
+        elevatedUserId = target._id;
       }
     }
 
-    logger.info(`Admin request ${action}ed`, {
-      requestId,
-      requestIdDb: adminRequest._id.toString(),
-      action,
-      reviewedBy: owner._id.toString()
-    });
-
-    return NextResponse.json(
-      {
-        message: `Admin request ${action}ed successfully`,
-        request: {
-          id: adminRequest._id.toString(),
-          status: adminRequest.status,
-          reviewedAt: adminRequest.reviewedAt,
-        },
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    logger.error('Failed to process admin request', {
-      requestId,
-      error: error.message
-    });
-
-    if (error.message.includes('Owner access required')) {
-      return NextResponse.json(
-        { error: 'Owner access required' },
-        { status: 403 }
-      );
+    if (req.userId?._id || elevatedUserId) {
+      await notify({
+        userId: elevatedUserId || req.userId._id,
+        type: 'admin_decision',
+        title: action === 'approve' ? 'Your admin request was approved' : 'Your admin request was rejected',
+        body: notes || '',
+        link: '/dashboard',
+      });
     }
 
-    return NextResponse.json(
-      { error: 'Server error' },
-      { status: 500 }
-    );
-  }
-}
+    await recordAudit({
+      action: action === 'approve' ? 'admin_request.approve' : 'admin_request.reject',
+      actor: owner,
+      targetType: 'admin_request',
+      targetId: req._id,
+      meta: { notes: notes || '', userId: elevatedUserId?.toString() || null },
+      request,
+      severity: action === 'approve' ? 'warn' : 'info',
+    });
+
+    return ok({
+      message: `Admin request ${action}d successfully`,
+      request: { id: req._id.toString(), status: req.status, reviewedAt: req.reviewedAt },
+    });
+  },
+});

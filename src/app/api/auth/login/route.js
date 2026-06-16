@@ -1,183 +1,73 @@
+import { NextResponse } from 'next/server';
+import { createHandler } from '@/lib/api-handler';
+import {
+  COOKIE_NAMES,
+  accessCookieOptions,
+  refreshCookieOptions,
+  signAccessToken,
+  signRefreshToken,
+} from '@/lib/jwt';
 import logger from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
+import { recordAudit } from '@/lib/audit';
+import { LIMITS } from '@/lib/rate-limit';
+import { loginSchema } from '@/lib/validation';
 import User from '@/models/User';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { NextResponse } from 'next/server';
 
-// Validate required environment variables
-if (!process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
-}
+export const POST = createHandler({
+  schema: loginSchema,
+  rateLimit: { bucket: 'auth-login', limit: LIMITS.auth },
+  handler: async ({ request, body, requestId }) => {
+    await dbConnect();
+    const { email, password } = body;
 
-export async function POST(request) {
-  const requestId = logger.generateRequestId();
-  const startTime = Date.now();
-
-  try {
-    // Check if we're in production
-    const isProduction = process.env.NODE_ENV === 'production';
-    const devFallbackEnabled = process.env.DEV_AUTH_FALLBACK === 'true';
-
-    // Try to connect to MongoDB
-    let isDbConnected = false;
-    try {
-      await dbConnect();
-      isDbConnected = true;
-    } catch (dbError) {
-      logger.error('MongoDB connection failed', { 
-        requestId, 
-        error: dbError.message 
-      });
-
-      // In production, fail immediately if DB is down
-      if (isProduction) {
-        return NextResponse.json(
-          { error: 'Service temporarily unavailable. Please try again later.' },
-          { status: 503 }
-        );
-      }
-
-      // In development, only allow fallback if explicitly enabled
-      if (!devFallbackEnabled) {
-        return NextResponse.json(
-          { error: 'Database unavailable and DEV_AUTH_FALLBACK is not enabled' },
-          { status: 503 }
-        );
-      }
-    }
-    
-    const { email, password } = await request.json();
-
-    logger.info('Login attempt', { requestId, email });
-
-    // Basic validation
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Please provide email and password' },
-        { status: 400 }
-      );
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      logger.warn('Login failed (no user)', { requestId, email });
+      await recordAudit({ action: 'user.login.failed', meta: { email, reason: 'not_found' }, request, severity: 'warn' });
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    if (isDbConnected) {
-      // Find user by email
-      const user = await User.findOne({ email });
-      
-      if (!user) {
-        logger.warn('Login failed - user not found', { requestId, email });
-        return NextResponse.json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
-        );
-      }
+    if (user.isActive === false) {
+      await recordAudit({ action: 'user.login.failed', actor: user, meta: { reason: 'disabled' }, request, severity: 'warn' });
+      return NextResponse.json({ error: 'Account is disabled' }, { status: 403 });
+    }
 
-      // Verify password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      
-      if (!isPasswordValid) {
-        logger.warn('Login failed - invalid password', { requestId, email });
-        return NextResponse.json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
-        );
-      }
+    const ok = await user.comparePassword(password);
+    if (!ok) {
+      logger.warn('Login failed (bad password)', { requestId, email });
+      await recordAudit({ action: 'user.login.failed', actor: user, meta: { reason: 'bad_password' }, request, severity: 'warn' });
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
 
-      // Create JWT token with reduced expiry (1 hour)
-      const token = jwt.sign(
-        { userId: user._id.toString(), role: user.role, name: user.name },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+    user.lastActiveAt = new Date();
+    user.lastLoginAt = new Date();
+    await user.save();
 
-      const duration = Date.now() - startTime;
-      logger.info('Login successful', {
-        requestId,
-        userId: user._id.toString(),
-        role: user.role,
-        duration: `${duration}ms`
-      });
+    const accessToken = signAccessToken({ userId: user._id.toString(), role: user.role, name: user.name });
+    const refreshToken = signRefreshToken({ userId: user._id.toString(), tokenVersion: 1 });
 
-      // Create response with httpOnly cookie
-      const response = NextResponse.json(
-        {
-          message: 'Login successful',
-          token, // For backwards compatibility
-          user: {
-            id: user._id.toString(),
-            name: user.name,
-            email: user.email,
-            role: user.role,
-          },
+    await recordAudit({ action: 'user.login.success', actor: user, request });
+
+    const response = NextResponse.json(
+      {
+        message: 'Login successful',
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          department: user.department,
+          title: user.title,
+          isOwner: !!user.isOwner,
         },
-        { status: 200 }
-      );
-
-      response.cookies.set('auth-token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 3600, // 1 hour
-        path: '/',
-      });
-
-      return response;
-    } else {
-      // Development fallback mode
-      logger.warn('Using development fallback mode for login', { requestId });
-
-      if (password.length < 6) {
-        return NextResponse.json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
-        );
-      }
-
-      const mockUserId = 'user_' + Date.now();
-      const userName = email.split('@')[0];
-      const userRole = email.includes('admin') ? 'admin' : 'user';
-
-      // Create JWT token
-      const token = jwt.sign(
-        { userId: mockUserId, role: userRole, name: userName },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
-
-      const response = NextResponse.json(
-        {
-          message: 'Login successful (Development Mode)',
-          token,
-          user: {
-            id: mockUserId,
-            name: userName,
-            email: email,
-            role: userRole,
-          },
-        },
-        { status: 200 }
-      );
-
-      response.cookies.set('auth-token', token, {
-        httpOnly: true,
-        secure: false, // Development mode
-        sameSite: 'lax',
-        maxAge: 3600,
-        path: '/',
-      });
-
-      return response;
-    }
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    logger.error('Login failed', {
-      requestId,
-      error: error.message,
-      duration: `${duration}ms`
-    });
-    
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      },
+      { status: 200 }
     );
-  }
-}
+
+    response.cookies.set(COOKIE_NAMES.access, accessToken, accessCookieOptions());
+    response.cookies.set(COOKIE_NAMES.refresh, refreshToken, refreshCookieOptions());
+
+    return response;
+  },
+});

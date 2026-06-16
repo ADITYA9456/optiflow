@@ -61,7 +61,7 @@ Comprehensive security improvements have been implemented for the OptiFlow appli
 1. **Rotate API Keys** 🔥
    ```bash
    # Visit https://aistudio.google.com/app/apikey
-   # Delete old key: AIzaSyDmTgOGofhn_sjK-8LlYtGQTB8qHBB0KTg
+   # Delete old key: <REDACTED_ROTATE_THIS_KEY>
    # Generate new key
    # Update .env.local with new key
    ```

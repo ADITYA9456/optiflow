@@ -1,92 +1,95 @@
 import logger from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
+import { COOKIE_NAMES, verifyAccessToken } from '@/lib/jwt';
 import User from '@/models/User';
-import jwt from 'jsonwebtoken';
 
-// Validate JWT_SECRET on module load
-if (!process.env.JWT_SECRET) {
-  logger.error('FATAL: JWT_SECRET is not configured. Application cannot start securely.');
-  throw new Error('JWT_SECRET environment variable is required');
-}
+const ROLE_PRIORITY = {
+  employee: 1,
+  team_leader: 2,
+  manager: 3,
+  admin: 4,
+  owner: 5,
+};
 
-// Verify JWT token and extract user info
+const normalizeRole = (role) => (role === 'user' ? 'employee' : role);
+
+const hasMinimumRole = (userRole, minimumRole) => {
+  const u = normalizeRole(userRole);
+  const m = normalizeRole(minimumRole);
+  return (ROLE_PRIORITY[u] || 0) >= (ROLE_PRIORITY[m] || 0);
+};
+
 export const verifyToken = (request) => {
-  // Try cookie first (httpOnly)
-  const cookieToken = request.cookies?.get('auth-token')?.value;
-  
-  // Fall back to Authorization header for backwards compatibility
+  const cookieToken = request.cookies?.get?.(COOKIE_NAMES.access)?.value;
   const authHeader = request.headers.get('authorization');
   const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  
   const token = cookieToken || headerToken;
-  
-  if (!token) {
-    throw new Error('No valid token provided');
-  }
-  
+
+  if (!token) throw new Error('No valid token provided');
+
   try {
-    return jwt.verify(token, process.env.JWT_SECRET);
+    return verifyAccessToken(token);
   } catch (error) {
     logger.warn('Token verification failed', { error: error.message });
     throw new Error('Invalid or expired token');
   }
 };
 
-// Get user from database with role
 export const getUserFromToken = async (request) => {
-  try {
-    await dbConnect();
-    
-    const decoded = verifyToken(request);
-    const user = await User.findById(decoded.userId).select('-password');
-    
-    if (!user) {
-      throw new Error('User not found');
-    }
-    
-    return user;
-  } catch (error) {
-    logger.warn('getUserFromToken failed', { error: error.message });
-    throw new Error('Invalid token or user not found');
-  }
-};
+  await dbConnect();
+  const decoded = verifyToken(request);
+  const user = await User.findById(decoded.userId).select('-password');
+  if (!user) throw new Error('User not found');
+  if (user.isActive === false) throw new Error('Account is disabled');
 
-// Check if user has owner role
-export const requireOwner = async (request) => {
-  const user = await getUserFromToken(request);
-  
-  if (!user.isOwner || user.role !== 'owner') {
-    logger.warn('Owner access denied', { userId: user._id, role: user.role });
-    throw new Error('Owner access required');
-  }
-  
+  const normalized = normalizeRole(user.role);
+  if (normalized !== user.role) user.role = normalized;
   return user;
 };
 
-// Check if user has admin role (or owner)
-export const requireAdmin = async (request) => {
-  const user = await getUserFromToken(request);
-  
-  if (user.role !== 'admin' && user.role !== 'owner') {
-    logger.warn('Admin access denied', { userId: user._id, role: user.role });
-    throw new Error('Admin access required');
-  }
-  
-  return user;
-};
+export const requireAuth = async (request) => getUserFromToken(request);
 
-// Check if user has specific role
 export const requireRole = async (request, requiredRole) => {
   const user = await getUserFromToken(request);
-  
-  if (user.role !== requiredRole) {
+  if (normalizeRole(user.role) !== normalizeRole(requiredRole)) {
     throw new Error(`${requiredRole} access required`);
   }
-  
   return user;
 };
 
-// Get user with basic auth check
-export const requireAuth = async (request) => {
-  return await getUserFromToken(request);
+export const requireOwner = async (request) => {
+  const user = await getUserFromToken(request);
+  if (!user.isOwner || user.role !== 'owner') {
+    throw new Error('Owner access required');
+  }
+  return user;
 };
+
+export const requireAdmin = async (request) => {
+  const user = await getUserFromToken(request);
+  if (!hasMinimumRole(user.role, 'admin')) throw new Error('Admin access required');
+  return user;
+};
+
+export const requireManager = async (request) => {
+  const user = await getUserFromToken(request);
+  if (!hasMinimumRole(user.role, 'manager')) throw new Error('Manager access required');
+  return user;
+};
+
+export const requireTeamLeader = async (request) => {
+  const user = await getUserFromToken(request);
+  if (!hasMinimumRole(user.role, 'team_leader')) throw new Error('Team leader access required');
+  return user;
+};
+
+export const requireAnyRole = async (request, roles) => {
+  const user = await getUserFromToken(request);
+  const normalized = roles.map(normalizeRole);
+  if (!normalized.includes(normalizeRole(user.role))) {
+    throw new Error('Insufficient role permissions');
+  }
+  return user;
+};
+
+export { hasMinimumRole, normalizeRole, ROLE_PRIORITY };

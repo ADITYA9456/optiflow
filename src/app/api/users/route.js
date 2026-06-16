@@ -1,25 +1,23 @@
+import { createHandler, ok } from '@/lib/api-handler';
+import logger from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
-import { requireAdmin } from '@/middleware/auth';
+import { requireManager } from '@/middleware/auth';
 import User from '@/models/User';
-import { NextResponse } from 'next/server';
 
-// GET all users (admin only)
-export async function GET(request) {
-  try {
+// GET all users (manager and above)
+export const GET = createHandler({
+  rateLimit: { bucket: 'users-list', limit: 120 },
+  handler: async ({ request, requestId }) => {
     await dbConnect();
-    
-    await requireAdmin(request);
 
-    const users = await User.find({ role: 'user' })
-      .select('name email createdAt')
+    await requireManager(request);
+
+    const users = await User.find({ role: { $ne: 'owner' } })
+      .select('name email role department title visibilityScore promotionScore isActive createdAt lastActiveAt')
       .sort({ name: 1 });
 
-    return NextResponse.json({ users }, { status: 200 });
-  } catch (error) {
-    console.error('Get users error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Unauthorized or server error' },
-      { status: 401 }
-    );
-  }
-}
+    logger.info('Users fetched', { requestId, count: users.length });
+
+    return ok({ users });
+  },
+});

@@ -5,7 +5,7 @@
 ### 1. Rotate Leaked API Key
 ```bash
 # Old key (COMPROMISED - do not use):
-# AIzaSyDmTgOGofhn_sjK-8LlYtGQTB8qHBB0KTg
+# <REDACTED_ROTATE_THIS_KEY>
 
 # Go to: https://aistudio.google.com/app/apikey
 # 1. Delete old key

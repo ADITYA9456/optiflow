@@ -1,245 +1,238 @@
-import { getAuthHeaders, getUserRole } from '@/utils/auth';
+'use client';
+
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { authFetch } from '@/contexts/AuthContext';
+import Button from '@/components/ui/Button';
+
+const EMPTY = {
+  title: '',
+  description: '',
+  deadline: '',
+  priority: 'medium',
+  taskType: 'feature',
+  effortPoints: 3,
+  labels: '',
+  assignmentType: 'user',
+  assignedTo: '',
+  teamId: '',
+};
 
 export default function AdminTaskModal({ isOpen, onClose, onSubmit, task = null }) {
-  const [formData, setFormData] = useState({
-    title: task?.title || '',
-    description: task?.description || '',
-    deadline: task?.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '',
-    priority: task?.priority || 'medium',
-    assignmentType: task?.assignedTo ? 'user' : task?.teamId ? 'team' : 'user',
-    assignedTo: task?.assignedTo?._id || '',
-    teamId: task?.teamId?._id || ''
-  });
+  const [formData, setFormData] = useState(EMPTY);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isOpen && getUserRole() === 'admin') {
-      fetchUsers();
-      fetchTeams();
-    }
-  }, [isOpen]);
+    if (!isOpen) return;
+    setFormData({
+      title: task?.title || '',
+      description: task?.description || '',
+      deadline: task?.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '',
+      priority: task?.priority || 'medium',
+      taskType: task?.taskType || 'feature',
+      effortPoints: task?.effortPoints || 3,
+      labels: Array.isArray(task?.labels) ? task.labels.join(', ') : '',
+      assignmentType: task?.assignedTo ? 'user' : task?.teamId ? 'team' : 'user',
+      assignedTo: task?.assignedTo?._id || '',
+      teamId: task?.teamId?._id || '',
+    });
+  }, [task, isOpen]);
 
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch('/api/users', {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.users);
+  useEffect(() => {
+    if (!isOpen) return;
+    let alive = true;
+    (async () => {
+      try {
+        const [u, t] = await Promise.all([authFetch('/api/users'), authFetch('/api/teams')]);
+        if (!alive) return;
+        if (u.ok) setUsers((await u.json()).users || []);
+        if (t.ok) setTeams((await t.json()).teams || []);
+      } catch {
+        // ignore
       }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
-
-  const fetchTeams = async () => {
-    try {
-      const response = await fetch('/api/teams', {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTeams(data.teams);
-      }
-    } catch (error) {
-      console.error('Error fetching teams:', error);
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    const submitData = {
-      title: formData.title,
-      description: formData.description,
-      deadline: formData.deadline,
-      priority: formData.priority,
-      assignedTo: formData.assignmentType === 'user' ? formData.assignedTo : null,
-      teamId: formData.assignmentType === 'team' ? formData.teamId : null
+    })();
+    return () => {
+      alive = false;
     };
-    
-    onSubmit(submitData);
-    setLoading(false);
-    setFormData({
-      title: '',
-      description: '',
-      deadline: '',
-      priority: 'medium',
-      assignmentType: 'user',
-      assignedTo: '',
-      teamId: ''
-    });
-  };
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-96 overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {task ? 'Edit Task' : 'Create New Task'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+  const onChange = (e) => setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
+
+    if (formData.assignmentType === 'user' && !formData.assignedTo) {
+      toast.error('Pick a user to assign or switch to team assignment.');
+      return;
+    }
+    if (formData.assignmentType === 'team' && !formData.teamId) {
+      toast.error('Pick a team to assign or switch to user assignment.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        title: formData.title,
+        description: formData.description,
+        deadline: formData.deadline,
+        priority: formData.priority,
+        taskType: formData.taskType,
+        effortPoints: Number(formData.effortPoints || 3),
+        labels: String(formData.labels || '')
+          .split(',')
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .slice(0, 8),
+        assignedTo: formData.assignmentType === 'user' ? formData.assignedTo : null,
+        teamId: formData.assignmentType === 'team' ? formData.teamId : null,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-label={task ? 'Edit task' : 'Assign task'}
+    >
+      <div
+        className="w-full max-w-xl overflow-hidden rounded-2xl border"
+        style={{ borderColor: 'var(--border)', background: 'var(--surface-elevated)' }}
+      >
+        <header className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--border)' }}>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {task ? 'Edit task' : 'Assign new task'}
+          </h2>
+          <button onClick={onClose} className="btn-ghost px-2" aria-label="Close">
+            ✕
+          </button>
+        </header>
+
+        <form onSubmit={handleSubmit} className="max-h-[78vh] space-y-3 overflow-y-auto p-5">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Title
             </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter task title"
-            />
+            <input required name="title" value={formData.title} onChange={onChange} className="surface-input text-sm" />
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Description
             </label>
             <textarea
+              required
               name="description"
-              value={formData.description}
-              onChange={handleChange}
-              required
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter task description"
+              value={formData.description}
+              onChange={onChange}
+              className="surface-input text-sm"
             />
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Deadline
-            </label>
-            <input
-              type="date"
-              name="deadline"
-              value={formData.deadline}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Deadline
+              </label>
+              <input required type="date" name="deadline" value={formData.deadline} onChange={onChange} className="surface-input text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Priority
+              </label>
+              <select name="priority" value={formData.priority} onChange={onChange} className="surface-input text-sm">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Priority
-            </label>
-            <select
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Type
+              </label>
+              <select name="taskType" value={formData.taskType} onChange={onChange} className="surface-input text-sm">
+                <option value="feature">Feature</option>
+                <option value="bug">Bug</option>
+                <option value="chore">Chore</option>
+                <option value="research">Research</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Effort
+              </label>
+              <input type="number" min={1} max={13} name="effortPoints" value={formData.effortPoints} onChange={onChange} className="surface-input text-sm" />
+            </div>
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Assign To
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              Labels
             </label>
-            <div className="flex space-x-4 mb-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="assignmentType"
-                  value="user"
-                  checked={formData.assignmentType === 'user'}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
-                Individual User
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="assignmentType"
-                  value="team"
-                  checked={formData.assignmentType === 'team'}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
-                Team
-              </label>
+            <input name="labels" value={formData.labels} onChange={onChange} className="surface-input text-sm" placeholder="frontend, sprint-4" />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              Assign to
+            </label>
+            <div className="flex gap-2">
+              {['user', 'team'].map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setFormData((p) => ({ ...p, assignmentType: mode }))}
+                  className={`flex-1 rounded-xl border px-3 py-2 text-xs uppercase tracking-wide ${
+                    formData.assignmentType === mode ? 'btn-primary' : 'btn-secondary'
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
             </div>
 
             {formData.assignmentType === 'user' ? (
-              <select
-                name="assignedTo"
-                value={formData.assignedTo}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select a user</option>
-                {users.map((user) => (
-                  <option key={user._id} value={user._id}>
-                    {user.name} ({user.email})
+              <select required name="assignedTo" value={formData.assignedTo} onChange={onChange} className="surface-input mt-2 text-sm">
+                <option value="">Select a user…</option>
+                {users.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name} · {u.role?.replace('_', ' ')}
                   </option>
                 ))}
               </select>
             ) : (
-              <select
-                name="teamId"
-                value={formData.teamId}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select a team</option>
-                {teams.map((team) => (
-                  <option key={team._id} value={team._id}>
-                    {team.name} ({team.members.length} members)
+              <select required name="teamId" value={formData.teamId} onChange={onChange} className="surface-input mt-2 text-sm">
+                <option value="">Select a team…</option>
+                {teams.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name}
                   </option>
                 ))}
               </select>
             )}
           </div>
 
-          <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition duration-200"
-            >
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200 disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : (task ? 'Update Task' : 'Create Task')}
-            </button>
+            </Button>
+            <Button type="submit" loading={submitting}>
+              {task ? 'Save changes' : 'Assign task'}
+            </Button>
           </div>
         </form>
       </div>

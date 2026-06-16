@@ -3,35 +3,38 @@ import mongoose from 'mongoose';
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  console.warn('[mongodb] MONGODB_URI not set. Database features will fail until configured.');
 }
 
 let cached = global.mongoose;
-
 if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
 async function dbConnect() {
-  if (cached.conn) {
-    return cached.conn;
+  if (!MONGODB_URI) {
+    throw new Error('MONGODB_URI environment variable is required');
   }
 
-  if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-    };
+  if (cached.conn) return cached.conn;
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
+  if (!cached.promise) {
+    cached.promise = mongoose
+      .connect(MONGODB_URI, {
+        bufferCommands: false,
+        serverSelectionTimeoutMS: 8000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        minPoolSize: 2,
+      })
+      .then((m) => m);
   }
 
   try {
     cached.conn = await cached.promise;
-  } catch (e) {
+  } catch (error) {
     cached.promise = null;
-    throw e;
+    throw error;
   }
 
   return cached.conn;

@@ -1,51 +1,243 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ==========================================================================
+   OptiFlow AI — Design Tokens (semantic, theme-aware)
+   ==========================================================================
+   These variables drive both light and dark modes. UI components use Tailwind
+   arbitrary values like `bg-[var(--surface)]` or the helper utility classes
+   defined below so a single source of truth controls all surfaces.
+*/
+
+:root,
+:root[data-theme='dark'] {
+  --bg-app: #050816;
+  --bg-app-2: #0b1024;
+  --bg-app-3: #0f1530;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-strong: rgba(255, 255, 255, 0.08);
+  --surface-elevated: rgba(15, 23, 42, 0.65);
+  --border: rgba(148, 163, 184, 0.18);
+  --border-strong: rgba(148, 163, 184, 0.32);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-inverse: #0f172a;
+  --accent: #22d3ee;
+  --accent-2: #38bdf8;
+  --accent-3: #818cf8;
+  --accent-foreground: #03131b;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #fb7185;
+  --info: #60a5fa;
+  --ring: rgba(34, 211, 238, 0.55);
+  --shadow-soft: 0 18px 40px -20px rgba(2, 6, 23, 0.7);
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root[data-theme='light'] {
+  --bg-app: #f5f7fb;
+  --bg-app-2: #eef2f9;
+  --bg-app-3: #e6ecf6;
+  --surface: rgba(255, 255, 255, 0.85);
+  --surface-strong: rgba(255, 255, 255, 0.95);
+  --surface-elevated: rgba(255, 255, 255, 0.98);
+  --border: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.18);
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-inverse: #f8fafc;
+  --accent: #0ea5e9;
+  --accent-2: #0284c7;
+  --accent-3: #6366f1;
+  --accent-foreground: #ffffff;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #e11d48;
+  --info: #2563eb;
+  --ring: rgba(14, 165, 233, 0.45);
+  --shadow-soft: 0 16px 36px -24px rgba(15, 23, 42, 0.25);
+  color-scheme: light;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
-}
-
-/* Smooth page transitions */
 * {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+html {
   scroll-behavior: smooth;
 }
 
-/* Responsive animations - reduce motion for users who prefer it */
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 800px at 20% -10%, color-mix(in srgb, var(--accent-3) 18%, transparent), transparent 60%),
+    radial-gradient(900px 600px at 90% 10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--bg-app) 0%, var(--bg-app-2) 60%, var(--bg-app-3) 100%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* ==========================================================================
+   Reusable utility classes — theme-aware
+   ========================================================================== */
+
+.app-bg {
+  background:
+    radial-gradient(1200px 800px at 20% -10%, color-mix(in srgb, var(--accent-3) 18%, transparent), transparent 60%),
+    radial-gradient(900px 600px at 90% 10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--bg-app) 0%, var(--bg-app-2) 60%, var(--bg-app-3) 100%);
+  color: var(--text-primary);
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+}
+
+.card-strong {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface-strong);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+}
+
+.surface-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-elevated) 75%, transparent);
+  color: var(--text-primary);
+  padding: 0.65rem 0.85rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.surface-input::placeholder { color: var(--text-muted); }
+
+.surface-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+  color: var(--accent-foreground);
+  font-weight: 700;
+  padding: 0.55rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+}
+
+.btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: 0.5rem 0.9rem;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.btn-secondary:hover { background: var(--surface-strong); }
+.btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 0.4rem 0.7rem;
+}
+
+.btn-ghost:hover { background: var(--surface); color: var(--text-primary); }
+
+.muted { color: var(--text-muted); }
+.subtle { color: var(--text-secondary); }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--surface) 50%, transparent),
+    color-mix(in srgb, var(--surface-strong) 60%, transparent),
+    color-mix(in srgb, var(--surface) 50%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 0.75rem;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 35%, var(--border-strong) 65%);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 55%, var(--border-strong) 45%);
+  background-clip: padding-box;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

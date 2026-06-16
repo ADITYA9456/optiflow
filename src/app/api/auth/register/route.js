@@ -1,235 +1,114 @@
+import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
+import { createHandler } from '@/lib/api-handler';
+import {
+  COOKIE_NAMES,
+  accessCookieOptions,
+  refreshCookieOptions,
+  signAccessToken,
+  signRefreshToken,
+} from '@/lib/jwt';
 import logger from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
+import { recordAudit } from '@/lib/audit';
+import { LIMITS } from '@/lib/rate-limit';
+import { registerSchema } from '@/lib/validation';
 import User from '@/models/User';
-import jwt from 'jsonwebtoken';
-import { NextResponse } from 'next/server';
 
-// Validate required environment variables
-if (!process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
-}
+const ELEVATED_ROLES = new Set(['admin', 'manager', 'team_leader']);
 
-if (!process.env.ADMIN_SECRET) {
-  logger.warn('ADMIN_SECRET not configured - admin registration will fail');
-}
+export const POST = createHandler({
+  schema: registerSchema,
+  rateLimit: { bucket: 'auth-register', limit: LIMITS.auth },
+  handler: async ({ request, body, requestId }) => {
+    await dbConnect();
+    const { name, email, password, role = 'employee', adminSecret, department, title } = body;
 
-export async function POST(request) {
-  const requestId = logger.generateRequestId();
-  const startTime = Date.now();
-
-  try {
-    // Check if we're in production
-    const isProduction = process.env.NODE_ENV === 'production';
-    const devFallbackEnabled = process.env.DEV_AUTH_FALLBACK === 'true';
-
-    // Try to connect to MongoDB
-    let isDbConnected = false;
-    try {
-      await dbConnect();
-      isDbConnected = true;
-    } catch (dbError) {
-      logger.error('MongoDB connection failed', { 
-        requestId, 
-        error: dbError.message 
-      });
-
-      // In production, fail immediately if DB is down
-      if (isProduction) {
-        return NextResponse.json(
-          { error: 'Service temporarily unavailable. Please try again later.' },
-          { status: 503 }
-        );
-      }
-
-      // In development, only allow fallback if explicitly enabled
-      if (!devFallbackEnabled) {
-        return NextResponse.json(
-          { error: 'Database unavailable and DEV_AUTH_FALLBACK is not enabled' },
-          { status: 503 }
-        );
-      }
-    }
-    
-    const { name, email, password, role, adminSecret } = await request.json();
-
-    logger.info('Registration attempt', { 
-      requestId, 
-      email, 
-      role: role || 'user' 
-    });
-
-    // Basic validation
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: 'Please provide all required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Validate password length
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
-        { status: 400 }
-      );
-    }
-
-    // Validate admin registration - strict validation
-    if (role === 'admin') {
+    if (ELEVATED_ROLES.has(role)) {
       if (!process.env.ADMIN_SECRET) {
-        logger.error('Admin registration attempted but ADMIN_SECRET not configured', {
-          requestId
+        logger.error('Elevated registration attempted but ADMIN_SECRET not configured', { requestId });
+        return NextResponse.json({ error: 'Elevated role registration is not available' }, { status: 403 });
+      }
+      if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
+        return NextResponse.json({ error: 'Invalid verification code for elevated role' }, { status: 403 });
+      }
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 });
+    }
+
+    // The first user becomes the owner. Done in a transaction-safe manner using
+    // the unique partial index on `isOwner`. If two requests race, only one will
+    // win the unique constraint and we will gracefully demote and retry.
+    const session = await mongoose.startSession();
+    let user;
+    try {
+      await session.withTransaction(async () => {
+        const userCount = await User.countDocuments({}).session(session);
+        const isFirstUser = userCount === 0;
+        const finalRole = isFirstUser ? 'owner' : role;
+
+        const [created] = await User.create(
+          [
+            {
+              name,
+              email,
+              password,
+              role: finalRole,
+              isOwner: isFirstUser,
+              department: department?.trim() || 'General',
+              title: title?.trim() || 'Contributor',
+            },
+          ],
+          { session }
+        );
+        user = created;
+      });
+    } catch (error) {
+      // Fallback for replica sets that disallow transactions — try without txn.
+      if (String(error.message || '').toLowerCase().includes('transaction')) {
+        const userCount = await User.countDocuments({});
+        const isFirstUser = userCount === 0;
+        user = await User.create({
+          name,
+          email,
+          password,
+          role: isFirstUser ? 'owner' : role,
+          isOwner: isFirstUser,
+          department: department?.trim() || 'General',
+          title: title?.trim() || 'Contributor',
         });
-        return NextResponse.json(
-          { error: 'Admin registration is not available' },
-          { status: 403 }
-        );
+      } else {
+        throw error;
       }
-
-      if (!adminSecret) {
-        return NextResponse.json(
-          { error: 'Admin verification code is required' },
-          { status: 400 }
-        );
-      }
-      
-      if (adminSecret !== process.env.ADMIN_SECRET) {
-        logger.warn('Invalid admin verification code attempt', { requestId });
-        return NextResponse.json(
-          { error: 'Invalid admin verification code' },
-          { status: 403 }
-        );
-      }
+    } finally {
+      session.endSession();
     }
 
-    if (isDbConnected) {
-      // Check if this is the first user (will become owner)
-      const userCount = await User.countDocuments();
-      const isFirstUser = userCount === 0;
+    const accessToken = signAccessToken({ userId: user._id.toString(), role: user.role, name: user.name });
+    const refreshToken = signRefreshToken({ userId: user._id.toString(), tokenVersion: 1 });
 
-      // Check if user already exists
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return NextResponse.json(
-          { error: 'User with this email already exists' },
-          { status: 400 }
-        );
-      }
+    await recordAudit({ action: 'user.register', actor: user, request });
 
-      // Determine final role
-      let finalRole = role || 'user';
-      let isOwner = false;
-
-      if (isFirstUser) {
-        finalRole = 'owner';
-        isOwner = true;
-        logger.info('First user registration - assigning owner role', { requestId });
-      }
-
-      // Create user in database
-      const user = await User.create({
-        name,
-        email,
-        password: password,
-        role: finalRole,
-        isOwner,
-      });
-
-      // Create JWT token with reduced expiry (1 hour)
-      const token = jwt.sign(
-        { userId: user._id.toString(), role: user.role, name: user.name },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
-
-      const duration = Date.now() - startTime;
-      logger.info('User registered successfully', {
-        requestId,
-        userId: user._id.toString(),
-        role: user.role,
-        duration: `${duration}ms`
-      });
-
-      // Create response with httpOnly cookie
-      const response = NextResponse.json(
-        {
-          message: 'User registered successfully',
-          token, // For backwards compatibility with existing clients
-          user: {
-            id: user._id.toString(),
-            name: user.name,
-            email: user.email,
-            role: user.role,
-          },
+    const response = NextResponse.json(
+      {
+        message: 'Account created',
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          department: user.department,
+          title: user.title,
+          isOwner: !!user.isOwner,
         },
-        { status: 201 }
-      );
-
-      response.cookies.set('auth-token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 3600, // 1 hour
-        path: '/',
-      });
-
-      return response;
-    } else {
-      // Development fallback mode
-      logger.warn('Using development fallback mode for registration', { requestId });
-
-      const mockUserId = 'user_' + Date.now();
-      
-      // Create JWT token with 1 hour expiry
-      const token = jwt.sign(
-        { userId: mockUserId, role: role || 'user', name: name },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
-
-      const duration = Date.now() - startTime;
-      logger.info('User registered (development mode)', {
-        requestId,
-        userId: mockUserId,
-        role: role || 'user',
-        duration: `${duration}ms`
-      });
-
-      const response = NextResponse.json(
-        {
-          message: 'User registered successfully (Development Mode)',
-          token,
-          user: {
-            id: mockUserId,
-            name: name,
-            email: email,
-            role: role || 'user',
-          },
-        },
-        { status: 201 }
-      );
-
-      response.cookies.set('auth-token', token, {
-        httpOnly: true,
-        secure: false, // Development mode
-        sameSite: 'lax',
-        maxAge: 3600,
-        path: '/',
-      });
-
-      return response;
-    }
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    logger.error('Registration failed', {
-      requestId,
-      error: error.message,
-      duration: `${duration}ms`
-    });
-    
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
+      },
+      { status: 201 }
     );
-  }
-}
+    response.cookies.set(COOKIE_NAMES.access, accessToken, accessCookieOptions());
+    response.cookies.set(COOKIE_NAMES.refresh, refreshToken, refreshCookieOptions());
+    return response;
+  },
+});

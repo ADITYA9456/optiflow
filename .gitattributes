@@ -1,0 +1,21 @@
+# Normalize line endings across macOS, Windows, and Linux.
+# Prevents the "whole file changed" diffs and broken shell scripts that
+# happen when a repo is zipped/moved between operating systems.
+
+# Default: treat as text, check out with LF on every OS.
+* text=auto eol=lf
+
+# Scripts that MUST keep their platform's native endings.
+*.sh   text eol=lf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Binary assets — never touch.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff binary
+*.woff2 binary

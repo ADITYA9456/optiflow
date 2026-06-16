@@ -134,12 +134,12 @@ logger.info('User registered (development mode)', {
 
 The old API key was **committed to git** and is **publicly exposed**:
 ```
-OLD KEY (COMPROMISED): AIzaSyDmTgOGofhn_sjK-8LlYtGQTB8qHBB0KTg
+OLD KEY (COMPROMISED): <REDACTED_ROTATE_THIS_KEY>
 ```
 
 **Action Required**:
 1. Go to: https://aistudio.google.com/app/apikey
-2. **Delete** the old key: `AIzaSyDmTgOGofhn_sjK-8LlYtGQTB8qHBB0KTg`
+2. **Delete** the old key: `<REDACTED_ROTATE_THIS_KEY>`
 3. **Create** a new API key
 4. **Update** `.env.local`:
    ```env

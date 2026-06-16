@@ -11,7 +11,7 @@ const SuggestionSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['productivity', 'time-management', 'priority', 'automation'],
+    enum: ['productivity', 'time-management', 'priority', 'automation', 'delegation', 'growth'],
     default: 'productivity',
   },
   impact: {
